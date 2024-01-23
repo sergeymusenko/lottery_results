@@ -38,10 +38,8 @@ else:
 
 
 # notify via Telegram, bot: t.me/notifier_24lottos_bot
-TapiToken = '6571417860:AAH1gPK78DvjJeruLMcu8-HJ7Mp87fYGJUo' # '' means do not send
-TchatID = '-4122674827' # to Private Group
-#TchatID = '723039352' # to Sergey personally
-#TchatID = '' # '' means DO NOT SEND
+TapiToken = '' # '' means do not send
+TchatID = '' # '' means DO NOT SEND
 
 
 Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime ]
