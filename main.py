@@ -18,7 +18,7 @@ __email__	= "sergey@musenko.com"
 __license__	= "MIT"
 __copyright__= "© 2024, musenko.com"
 __credits__	= ["Sergey Musenko"]
-__date__	= "2024-01-15"
+__date__	= "2024-01-27"
 __version__	= "0.1"
 __status__	= "prod"
 
@@ -29,7 +29,7 @@ from lib.scrapers import *
 from lib.simple_telegram import *
 
 
-scrapeOnly = '' # '' - means proceed ALL
+scrape_only = '' # '' - means proceed ALL
 
 if __name__ == '__main__':
 	# init
@@ -58,7 +58,7 @@ if __name__ == '__main__':
 		lastresults = Lotteries[alias]['lastresults'] # from DB, list, in UTC !!!
 
 		if not url: continue # do not check this lottery
-		if scrapeOnly and alias != scrapeOnly: continue # check single lottery
+		if scrape_only and alias != scrape_only: continue # check single lottery
 
 
 		CnR['c'] += 1 # lottery counter
