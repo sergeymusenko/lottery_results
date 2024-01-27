@@ -12,7 +12,6 @@ __copyright__= "© 2024, musenko.com"
 __credits__	= ["Sergey Musenko"]
 __date__	= "2024-01-15"
 __version__	= "0.1"
-__status__	= "dev"
 
 import pymysql
 

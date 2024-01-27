@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # by www.ShellHacks.com
-'''
-send-message-to-telegram.py - Super simple Telegram message sender
+'''\
+simple_telegram.py - Super simple Telegram message sender
 
 see: https://psujit775.medium.com/ihow-to-send-telegram-message-with-python-e826b94f1d9b
-does not support buttons!
+note: it does not support buttons!
 '''
 
 __project__	= "Lotteries Results Scrapper"
@@ -16,7 +16,6 @@ __copyright__= "© 2024, musenko.com"
 __credits__	= ["Sergey Musenko"]
 __date__	= "2024-01-15"
 __version__	= "0.1"
-__status__	= "dev"
 
 __instructions__ = '''
 Create a Telegram bot

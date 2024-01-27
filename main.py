@@ -2,10 +2,9 @@
 """\
 This is Scrapper main file
 
-Start each hour :00 bewfore cron_draws (it will fill last_results table)
-We checking all missing results for last 7 days see config.py
-Send notification to Telegram chat.
-User must be added to group "24Lottos log", open https://t.me/+pgoDy1JxwXFlZTgy
+Start it each hour :00
+We checking all missing results for last 7 days, see config.py
+Send notification to Telegram chat
 
 pip3 install pymysql
 pip3 install pytz
@@ -21,7 +20,7 @@ __copyright__= "© 2024, musenko.com"
 __credits__	= ["Sergey Musenko"]
 __date__	= "2024-01-15"
 __version__	= "0.1"
-__status__	= "dev"
+__status__	= "prod"
 
 from config import *
 from lib.pymysqlwrapper import *
@@ -29,47 +28,46 @@ from lib.functions import *
 from lib.scrapers import *
 from lib.simple_telegram import *
 
+
+scrapeOnly = '' # '' - means proceed ALL
+
 if __name__ == '__main__':
 	# init
-	scrapeOnly = '' # '' - means proceed ALL
-	l = r = 0
+	main_start = time.time()
 	nowDtUTC = get_now_utc() # UTC
 	weekStart = week_start_date()[:11] # date only
 	message = f'🚀 {nowDtUTC}. Lottery Results Scrapper #Start'
 	print(message.replace('#', ''))
 	send_to_telegram(TapiToken, TchatID, message) # send to Telegram
-	main_start = time.time()
 
-	# connect DB
-	DB = pyMySQL(DBconf);
-	# get results datetimess and save to Lotteries
-	getLatestResTime(DB) # check last week only!
+	# connect to DB and get latest results datetimes, store them to Lotteries
+	DB = False if not DBconf else pyMySQL(DBconf); # OR use JSON_file as source
+	getLatestResTime(DB) # last week only!
+
+	# counters
+	EnW = {'e':[], 'w':[]} # errors and warnings counter
+	CnR = {'c':0, 'r':0} # checked and result counter
 
 	# find outdated/absent results and scrape
-	EnW = {'e':[], 'w':[]} # errors and warnings
-	for aliasRrc in Lotteries: # lotteries loop
+	for alias in Lotteries: # lotteries loop
 
 		# get lottery config
-		alias = Lotteries[aliasRrc]['alias'] # 24lottos alias
-		url = Lotteries[aliasRrc]['url']
-		urlType = Lotteries[aliasRrc]['urlType'].upper()
-		drawTimezone = Lotteries[aliasRrc]['timezone']
-		lastresults = Lotteries[aliasRrc]['lastresults'] # from DB, list, in UTC !!!
-		if not url: continue # do not check this lottery
-		if scrapeOnly and aliasRrc != scrapeOnly: continue
+		url = Lotteries[alias]['url']
+		urlType = Lotteries[alias]['urlType'].upper()
+		drawTimezone = Lotteries[alias]['timezone']
+		lastresults = Lotteries[alias]['lastresults'] # from DB, list, in UTC !!!
 
-		l += 1 # lottery counter
-		print(f"{l}. {aliasRrc}:") #  {lastresults}
+		if not url: continue # do not check this lottery
+		if scrapeOnly and alias != scrapeOnly: continue # check single lottery
+
+
+		CnR['c'] += 1 # lottery counter
+		print(f"{CnR['c']}. {alias}:")
 
 		# loop all draw times for a lottery
-		for draw in Lotteries[aliasRrc]['drawTimeList']: # draws loop
-			if len(draw) == 3:
-				drawDow, drawTime, gameID = draw
-			else:
-				drawDow, drawTime = draw
-				gameID = 0
+		for draw in Lotteries[alias]['drawTimeList']: # draws loop
+			drawDow, drawTime = draw
 			if len(drawTime) < 6: drawTime += ':00' # if draws time has no seconds
-
 			# exact draws datetime
 			drawDt = delta_days(weekStart + drawTime, drawDow - 1)
 			ztShort = get_tz_short(drawDt, drawTimezone)
@@ -77,19 +75,23 @@ if __name__ == '__main__':
 			if nowDtUTC < drawDtUTC: # draw date is in the future - make it in week ago
 				drawDt = delta_days(weekStart + drawTime, drawDow - 7 - 1) # week ago
 				drawDtUTC = local_to_utc(drawDt, drawTimezone)
+
 			# having results already? no, run it
 			if not lastresults or drawDt not in lastresults: # scrape and save to DB
-				print(f"\tScrape: {aliasRrc} on {drawDt} {ztShort}, {drawDtUTC}")
-				res = scrapeLottoRes(DB, aliasRrc, alias, drawDt, ztShort, url, urlType, gameID, EnW)
+				print(f"\tScrape: {alias} on {drawDt} {ztShort}, {drawDtUTC}")
+				res = 1
+				res = scrapeLottoRes(DB, alias, drawDt, ztShort, url, urlType, EnW)
 				if res:
-					r += 1 # results added counter
-			# else: print(f"\tskip {aliasRrc} on {drawDt}")
+					CnR['r'] += 1 # results added counter
+			# else: print(f"\tskip {alias} on {drawDt}")
 		# draws loop -- end
 	# lotteries loop -- end
 
+	saveResultsToFile()
+
 	# print summary, warnings, errors
 	error_level = 0
-	message = f"Total: {l} lotteries checked, {r} results added"
+	message = f"Total: {CnR['c']} lotteries checked, {CnR['r']} results added"
 	if len(EnW['w']):
 		error_level = 1
 		message = "🔔 " + message
@@ -103,7 +105,7 @@ if __name__ == '__main__':
 	if not error_level:
 		message = "🔥 " + message
 	print(message.replace('#', ''))
-	if error_level or r > 0:
+	if error_level or CnR['r'] > 0:
 		send_to_telegram(TapiToken, TchatID, message) # send to Telegram
 
 	# timing

@@ -12,12 +12,11 @@ __copyright__= "© 2024, musenko.com"
 __credits__	= ["Sergey Musenko"]
 __date__	= "2024-01-15"
 __version__	= "0.1"
-__status__	= "dev"
 
 from config import Lotteries
-from lib.functions import _dtfmt, ordinal
-import requests
+from lib.functions import *
 from datetime import datetime, timedelta
+import requests
 import time
 import os.path, os
 import re
@@ -30,29 +29,26 @@ _timeOut = 10 # this is a fuse
 _headers = {'User-Agent': 'Mozilla/5.0 (Platform; Security; OS-or-CPU; Localization; rv:1.4) Gecko/20030624 Netscape/7.1 (ax)'}
 _scrapeCache = {} # save HTML here, do not fetch it twice
 _sdebug = True
-_saveDB = False
 #_tmpfile = 'tmp.dat' # False means do not use local data copy for debugging
 _tmpfile = False
 
 # call custom function to get results and save to DB
-def scrapeLottoRes(DB, aliasRrc, alias, drawDt, ztShort, url, urlType, gameID, EnW):
-	global _gameID;
-	_gameID = gameID # save to global so no need to pass it as a parameter (for few lotteries)
+def scrapeLottoRes(DB, alias, drawDt, ztShort, url, urlType, EnW):
 	start_time = time.time()
 	elapsed_time = ret = 0
 
 	# call custom scrapper/parser
 	# it returns [result, resDate] or [False, False]
-	cutomFunc = 'custom_' + aliasRrc
+	cutomFunc = 'custom_' + alias
 	if cutomFunc in globals():
-		result, resDate = eval(cutomFunc + '(aliasRrc, drawDt, url, urlType)')
+		result, resDate = eval(cutomFunc + '(alias, drawDt, url, urlType)')
 		if isinstance(result, list): # an error, exception text returned
 			message = f'\t{cutomFunc}() scrapper failed, '+result[0]
 			EnW['e'].append(message)
 			if _sdebug: print(f"\t{message}")
 			return False
 		elif not result: # a warning
-			message = f'"{aliasRrc}" no data found'
+			message = f'"{alias}" no data found'
 			EnW['w'].append(message)
 			if _sdebug: print(f"\t{message}")
 			# notify/log scrape error ??? ############################################### <<<
@@ -64,20 +60,8 @@ def scrapeLottoRes(DB, aliasRrc, alias, drawDt, ztShort, url, urlType, gameID, E
 		if _sdebug: print(message)
 		return False
 
-	#save to DB
-	if _saveDB:
-		DB.insert(f"""
-			REPLACE INTO lotto_rrc_results_archive (
-				lotteryname, alias, datetime, winnumbers,
-				timezone, jackpotamount, jackpotcurrency, jackpotcurrencysign )
-			VALUES ( '{aliasRrc}', '{alias}', '{drawDt}', '{result}', '{ztShort}','0','-','-' )
-		""")
-	if not _saveDB or DB.rowcount:
-		ret = True # SUCCESS finally
-	else: # DB error
-		message = f"{aliasRrc} saving to DB failed"
-		EnW['e'].append(message)
-		if _sdebug: print(message)
+	#save to DB or to Lotteries id no DB
+	ret = saveLatestResults(DB, alias, drawDt, result, ztShort)
 
 	# time elapsed
 	elapsed_time = round(time.time() - start_time, 3)
@@ -85,9 +69,9 @@ def scrapeLottoRes(DB, aliasRrc, alias, drawDt, ztShort, url, urlType, gameID, E
 
 
 # get with cache
-def getSourceWithCahe(cacheKey, aliasRrc, url, urlType):
+def getSourceWithCahe(cacheKey, alias, url, urlType):
 	# check cached HTML
-	if aliasRrc in _scrapeCache:
+	if alias in _scrapeCache:
 		html = _scrapeCache[cacheKey]
 	else:
 		# scrape HTML
@@ -121,14 +105,14 @@ def getSource(url, urlType):
 # note: kenyalotto and tatua3 reloads pages
 
 # hoosierlotto ----------------------------------------
-def custom_hoosierlotto(aliasRrc, drawDt, url, urlType):
+def custom_hoosierlotto(alias, drawDt, url, urlType):
 	result = resDate = False
 	# prepare url and cache key
 	xdate = drawDt[0:10]
 	xurl = url.format(xdate) # hoosier URL has date on tail
-	cacheKey = f"{aliasRrc}/{xdate}"
+	cacheKey = f"{alias}/{xdate}"
 	try:
-		html = getSourceWithCahe(cacheKey, aliasRrc, xurl, urlType)
+		html = getSourceWithCahe(cacheKey, alias, xurl, urlType)
 		# parse results
 		if html:
 			# result as '{"numbers":[..],"numbers_extra":[..],"numbers_option":[]}' 
@@ -147,12 +131,12 @@ def custom_hoosierlotto(aliasRrc, drawDt, url, urlType):
 
 
 # kenyalotto -- PAGES! --------------------------------------
-def custom_kenyalotto(aliasRrc, drawDt, url, urlType, page=1):
+def custom_kenyalotto(alias, drawDt, url, urlType, page=1):
 	result = resDate = False
 	# prepare url and cache key
 	cacheKey = xurl = url.format(page) # hoosier URL has date on tail
 	try:
-		html = getSourceWithCahe(cacheKey, aliasRrc, xurl, urlType)
+		html = getSourceWithCahe(cacheKey, alias, xurl, urlType)
 		# parse results
 		if html:
 			# make date to search in format like "Thu 14 Dec 2023&nbsp;&nbsp;06:00pm"
@@ -175,19 +159,19 @@ def custom_kenyalotto(aliasRrc, drawDt, url, urlType, page=1):
 			# not found at current page, go deeper
 			page += 1
 			if page <= 8: # no more then N pages deeper
-				result, drawDt = custom_kenyalotto(aliasRrc, drawDt, url, urlType, page)
+				result, drawDt = custom_kenyalotto(alias, drawDt, url, urlType, page)
 	except Exception as e:
 		result = [str(e)]
 	return [result, resDate]
 
 
 # marksix -----------------------------------------
-def custom_marksix(aliasRrc, drawDt, url, urlType): # JSON
+def custom_marksix(alias, drawDt, url, urlType): # JSON
 	result = resDate = False
 	# prepare url and cache key
-	cacheKey = aliasRrc
+	cacheKey = alias
 	try:
-		jsons = getSourceWithCahe(cacheKey, aliasRrc, url, urlType)
+		jsons = getSourceWithCahe(cacheKey, alias, url, urlType)
 		datas = json.loads(jsons)
 		findDate = '{:%d/%m/%Y}'.format(datetime.strptime(drawDt,'%Y-%m-%d %H:%M:%S')).lower()
 		# parse json results
@@ -208,13 +192,13 @@ def custom_marksix(aliasRrc, drawDt, url, urlType): # JSON
 
 
 # japanlotto6 ----------------------------------------
-def custom_japanlotto6(aliasRrc, drawDt, url, urlType):
+def custom_japanlotto6(alias, drawDt, url, urlType):
 	result = resDate = False
-	cacheKey = aliasRrc # 2 weeks in 1 HTML file
+	cacheKey = alias # 2 weeks in 1 HTML file
 	# make date to search in format like "Thu 14 Dec 2023&nbsp;&nbsp;06:00pm"
 	findDate = '{:%d-%m-%Y}'.format(datetime.strptime(drawDt,'%Y-%m-%d %H:%M:%S')).lower()
 	try:
-		html = getSourceWithCahe(cacheKey, aliasRrc, url, urlType)
+		html = getSourceWithCahe(cacheKey, alias, url, urlType)
 		# parse results
 		if html:
 			soup = BeautifulSoup(html, "html.parser")
@@ -237,15 +221,15 @@ def custom_japanlotto6(aliasRrc, drawDt, url, urlType):
 
 
 # taiwanlotto649 ----------------------------------------
-def custom_taiwanlotto649(aliasRrc, drawDt, url, urlType):
+def custom_taiwanlotto649(alias, drawDt, url, urlType):
 	result = resDate = False
-	cacheKey = aliasRrc
+	cacheKey = alias
 	xurl = url.format('{:%Y-%m}'.format(datetime.strptime(drawDt,'%Y-%m-%d %H:%M:%S')))
 	# ChinaY from GrigorianY: chinaY = year - 1911, data like "112/12/08"
 	_drDt = datetime.strptime(drawDt,'%Y-%m-%d %H:%M:%S')
 	findDate = '{:%Y-%m-%d}'.format(datetime.strptime(drawDt,'%Y-%m-%d %H:%M:%S')).lower()
 	try:
-		jsons = getSourceWithCahe(cacheKey, aliasRrc, xurl, urlType)
+		jsons = getSourceWithCahe(cacheKey, alias, xurl, urlType)
 		datas = json.loads(jsons)
 		# parse json results
 		if datas and datas['content']['lotto649Res']:
@@ -266,29 +250,29 @@ def custom_taiwanlotto649(aliasRrc, drawDt, url, urlType):
 
 
 # philippinesgrand ----------------------------------------
-def custom_philippinesgrand(aliasRrc, drawDt, url, urlType):
-	return custom_philippineslotto(aliasRrc, drawDt, url, urlType)
+def custom_philippinesgrand(alias, drawDt, url, urlType):
+	return custom_philippineslotto(alias, drawDt, url, urlType)
 
 # philippinessuper ----------------------------------------
-def custom_philippinessuper(aliasRrc, drawDt, url, urlType):
-	return custom_philippineslotto(aliasRrc, drawDt, url, urlType)
+def custom_philippinessuper(alias, drawDt, url, urlType):
+	return custom_philippineslotto(alias, drawDt, url, urlType)
 
 # philippinesultra ----------------------------------------
-def custom_philippinesultra(aliasRrc, drawDt, url, urlType):
-	return custom_philippineslotto(aliasRrc, drawDt, url, urlType)
+def custom_philippinesultra(alias, drawDt, url, urlType):
+	return custom_philippineslotto(alias, drawDt, url, urlType)
 
 # philippinesmega ----------------------------------------
-def custom_philippinesmega(aliasRrc, drawDt, url, urlType):
-	return custom_philippineslotto(aliasRrc, drawDt, url, urlType)
+def custom_philippinesmega(alias, drawDt, url, urlType):
+	return custom_philippineslotto(alias, drawDt, url, urlType)
 
 # philippineslotto ----------------------------------------
-def custom_philippineslotto(aliasRrc, drawDt, url, urlType):
+def custom_philippineslotto(alias, drawDt, url, urlType):
 	result = resDate = False
-	cacheKey = aliasRrc
+	cacheKey = alias
 	xurl = url
 	findDate = '{:%b %-d, %Y}'.format(datetime.strptime(drawDt,'%Y-%m-%d %H:%M:%S'))
 	try:
-		html = getSourceWithCahe(cacheKey, aliasRrc, xurl, urlType)
+		html = getSourceWithCahe(cacheKey, alias, xurl, urlType)
 		# parse results
 		if html:
 			soup = BeautifulSoup(html, "html.parser")
@@ -309,15 +293,14 @@ def custom_philippineslotto(aliasRrc, drawDt, url, urlType):
 
 
 # nigeriagoldenchancelotto ----------------------------------------
-# this is 7 games indeed, use _gameID
-def custom_nigeriagoldenchancelotto(aliasRrc, drawDt, url, urlType):
-	global _gameID;
+# this is 7 games indeed
+def custom_nigeriagoldenchancelotto(alias, drawDt, url, urlType):
 	result = resDate = False
 	xdate = drawDt[0:10]
-	xurl = url.format(_gameID, xdate) # hoosier URL has date on tail
-	cacheKey = f"{aliasRrc}/{xdate}"
+	xurl = url.format(0, xdate) # hoosier URL has date on tail
+	cacheKey = f"{alias}/{xdate}"
 	try:
-		jsons = getSourceWithCahe(cacheKey, aliasRrc, xurl, urlType) # note, we requesting only 1 day result set
+		jsons = getSourceWithCahe(cacheKey, alias, xurl, urlType) # note, we requesting only 1 day result set
 		datas = json.loads(jsons)
 		# parse json results
 		if datas and 'result' in datas[0]:
@@ -341,12 +324,12 @@ def custom_nigeriagoldenchancelotto(aliasRrc, drawDt, url, urlType):
 
 
 # uk49slotto ----------------------------------------
-def custom_uk49slotto(aliasRrc, drawDt, url, urlType):
+def custom_uk49slotto(alias, drawDt, url, urlType):
 	result = resDate = False
 	xdate = drawDt[0:10]
-	cacheKey = f"{aliasRrc}"
+	cacheKey = f"{alias}"
 	try:
-		jsons = getSourceWithCahe(cacheKey, aliasRrc, url, urlType) # note, we requesting only 1 day result set
+		jsons = getSourceWithCahe(cacheKey, alias, url, urlType) # note, we requesting only 1 day result set
 		datas = json.loads(jsons)
 		# parse json results
 		if datas and 'games' in datas:
@@ -374,16 +357,16 @@ def custom_uk49slotto(aliasRrc, drawDt, url, urlType):
 
 
 # goslotto749 ----------------------------------------
-def custom_goslotto749(aliasRrc, drawDt, url, urlType):
+def custom_goslotto749(alias, drawDt, url, urlType):
 	result = resDate = False
 	xnow = datetime.now() # then get 1 page with last 8 days results
 	xfrom = (xnow + timedelta(days=-7)).strftime('%d.%m.%Y')
 	xto = xnow.strftime('%d.%m.%Y')
 	xurl = url.format(xfrom, xto) # hoosier URL has date on tail
 	findDate = '{:%d.%m.%Y %H:}'.format(datetime.strptime(drawDt,'%Y-%m-%d %H:%M:%S')).lower() # not sure about minutes!
-	cacheKey = f"{aliasRrc}"
+	cacheKey = f"{alias}"
 	try:
-		html = getSourceWithCahe(cacheKey, aliasRrc, xurl, urlType)
+		html = getSourceWithCahe(cacheKey, alias, xurl, urlType)
 		# parse results
 		if html:
 			soup = BeautifulSoup(html, "html.parser")
@@ -404,29 +387,29 @@ def custom_goslotto749(aliasRrc, drawDt, url, urlType):
 
 
 # africaenugu ----------------------------------------
-def custom_africaenugu(aliasRrc, drawDt, url, urlType):
-	return custom_africabingo(aliasRrc, drawDt, url, urlType)
+def custom_africaenugu(alias, drawDt, url, urlType):
+	return custom_africabingo(alias, drawDt, url, urlType)
 
 # africainternational ----------------------------------------
-def custom_africainternational(aliasRrc, drawDt, url, urlType):
-	return custom_africabingo(aliasRrc, drawDt, url, urlType)
+def custom_africainternational(alias, drawDt, url, urlType):
+	return custom_africabingo(alias, drawDt, url, urlType)
 
 # africalucky ----------------------------------------
-def custom_africalucky(aliasRrc, drawDt, url, urlType):
-	return custom_africabingo(aliasRrc, drawDt, url, urlType)
+def custom_africalucky(alias, drawDt, url, urlType):
+	return custom_africabingo(alias, drawDt, url, urlType)
 
 # africapeoples ----------------------------------------
-def custom_africapeoples(aliasRrc, drawDt, url, urlType):
-	return custom_africabingo(aliasRrc, drawDt, url, urlType)
+def custom_africapeoples(alias, drawDt, url, urlType):
+	return custom_africabingo(alias, drawDt, url, urlType)
 
 # africabingo ----------------------------------------
-def custom_africabingo(aliasRrc, drawDt, url, urlType):
+def custom_africabingo(alias, drawDt, url, urlType):
 	result = resDate = numbers = False
-	cacheKey = f"{aliasRrc}"
+	cacheKey = f"{alias}"
 	findDate = '{:%-d %B %Y}'.format(datetime.strptime(drawDt,'%Y-%m-%d %H:%M:%S')).lower()
 	findLen = len(findDate)
 	try:
-		html = getSourceWithCahe(cacheKey, aliasRrc, url, urlType) # note, we requesting only 1 day result set
+		html = getSourceWithCahe(cacheKey, alias, url, urlType) # note, we requesting only 1 day result set
 		soup = BeautifulSoup(html, "html.parser")
 
 		# 1. try to get from top
@@ -458,13 +441,13 @@ def custom_africabingo(aliasRrc, drawDt, url, urlType):
 
 
 # moroccolotto ----------------------------------------
-def custom_moroccolotto(aliasRrc, drawDt, url, urlType): # similar to Baba Ijebu but having 6+1 balls
+def custom_moroccolotto(alias, drawDt, url, urlType): # similar to Baba Ijebu but having 6+1 balls
 	result = resDate = numbers = False
-	cacheKey = f"{aliasRrc}"
+	cacheKey = f"{alias}"
 	findDate = '{:%-d %B %Y}'.format(datetime.strptime(drawDt,'%Y-%m-%d %H:%M:%S')).lower()
 	findLen = len(findDate)
 	try:
-		html = getSourceWithCahe(cacheKey, aliasRrc, url, urlType) # note, we requesting only 1 day result set
+		html = getSourceWithCahe(cacheKey, alias, url, urlType) # note, we requesting only 1 day result set
 		soup = BeautifulSoup(html, "html.parser")
 
 		# 1. try to get from top
@@ -499,13 +482,13 @@ def custom_moroccolotto(aliasRrc, drawDt, url, urlType): # similar to Baba Ijebu
 
 
 # lottomaxca ----------------------------------------
-def custom_lottomaxca(aliasRrc, drawDt, url, urlType): # similar to Baba Ijebu but having 7+1 balls
+def custom_lottomaxca(alias, drawDt, url, urlType): # similar to Baba Ijebu but having 7+1 balls
 	result = resDate = numbers = False
-	cacheKey = f"{aliasRrc}"
+	cacheKey = f"{alias}"
 	findDate = '{:%-d %B %Y}'.format(datetime.strptime(drawDt,'%Y-%m-%d %H:%M:%S')).lower()
 	findLen = len(findDate)
 	try:
-		html = getSourceWithCahe(cacheKey, aliasRrc, url, urlType) # note, we requesting only 1 day result set
+		html = getSourceWithCahe(cacheKey, alias, url, urlType) # note, we requesting only 1 day result set
 		soup = BeautifulSoup(html, "html.parser")
 
 		# 1. try to get from top
@@ -539,12 +522,12 @@ def custom_lottomaxca(aliasRrc, drawDt, url, urlType): # similar to Baba Ijebu b
 	return [result, resDate]
 
 # tatua3 -- PAGES! --------------------------------------
-def custom_tatua3(aliasRrc, drawDt, url, urlType, page=1):
+def custom_tatua3(alias, drawDt, url, urlType, page=1):
 	result = resDate = False
 	# prepare url and cache key
 	cacheKey = xurl = url.format(page) # hoosier URL has date on tail
 	try:
-		html = getSourceWithCahe(cacheKey, aliasRrc, xurl, urlType)
+		html = getSourceWithCahe(cacheKey, alias, xurl, urlType)
 		# parse results
 		if html:
 			# make date to search in format like "Fri, 22nd Dec 2023 – 09:30". NOTE: it contains 0x2013 char
@@ -568,21 +551,21 @@ def custom_tatua3(aliasRrc, drawDt, url, urlType, page=1):
 			# not found at current page, go deeper
 			page += 1
 			if page <= 17: # no more then N pages deeper: 20/page, 48 res/day, 7 days max = 17 pages
-				result, drawDt = custom_tatua3(aliasRrc, drawDt, url, urlType, page)
+				result, drawDt = custom_tatua3(alias, drawDt, url, urlType, page)
 	except Exception as e:
 		result = [str(e)]
 	return [result, resDate]
 
 # malawilotto ----------------------------------------
-def custom_malawilotto(aliasRrc, drawDt, url, urlType):
+def custom_malawilotto(alias, drawDt, url, urlType):
 	result = resDate = False
 	# prepare url and cache key
 	xdate = '{:%d-%m-%Y}'.format(datetime.strptime(drawDt,'%Y-%m-%d %H:%M:%S')).lower()
 	xurl = url.format(xdate) # hoosier URL has date on tail
-	cacheKey = f"{aliasRrc}/{xdate}"
+	cacheKey = f"{alias}/{xdate}"
 	# parse results
 	try: # first get draw id
-		jsons = getSourceWithCahe(cacheKey, aliasRrc, xurl, urlType)
+		jsons = getSourceWithCahe(cacheKey, alias, xurl, urlType)
 		datas = json.loads(jsons)
 		if datas and datas['allDraws']:
 			draw_no = 0
@@ -594,8 +577,8 @@ def custom_malawilotto(aliasRrc, drawDt, url, urlType):
 			if draw_no: # now if id found - get results
 				if _tmpfile: os.remove(_tmpfile)
 				xurl = url.replace('/all','').replace('?date=','/').format(draw_no) # hoosier URL has date on tail
-				cacheKey = f"{aliasRrc}/{draw_no}"
-				jsons = getSourceWithCahe(cacheKey, aliasRrc, xurl, urlType)
+				cacheKey = f"{alias}/{draw_no}"
+				jsons = getSourceWithCahe(cacheKey, alias, xurl, urlType)
 				datas = json.loads(jsons)
 				if datas and datas['results'] and datas['results']['date'][0:10]==drawDt[0:10]:
 					resDate = drawDt

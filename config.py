@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """\
 config.py - This is a config file
-	Lotteries settings array
 	DB connection
+	telegram settings
+	Lotteries settings array
 
-Config includes: game id, alias, timezone and local times of draw, sources URL and source type
+Config includes: alias, timezone, local time of draws, sources URL and type
 """
 
 __project__	= "Lotteries Results Scrapper"
@@ -19,36 +20,29 @@ __version__	= "0.1"
 __status__	= "dev"
 
 
-# DB CONFIG:
-import socket
-if socket.gethostname() == 'sereno':
-	DBconf = { # home dev server
-		'host':		'localhost',
-		'user':		'mserg',
-		'password':	'MSerg',
-		'db':		'24lottos',
-	}
-else:
-	DBconf = { # production server
-		'host':		'localhost',
-		'user':		'u2_u24lotom',
-		'password':	'9iUoMfF-_Lpu',
-		'db':		'db1_u24lotom',
-	}
+# DB config, {} means do not use DB
+DBconf = {
+#	'host':		'localhost',
+#	'user':		'user',
+#	'password':	'pswd',
+#	'db':		'lottos',
+}
 
 
-# notify via Telegram, bot: t.me/notifier_24lottos_bot
+JSON_file = 'results.json' # instaed of DB saving/restoring
+
+
+# notify via Telegram
+# see ,.lib/simple_telegram.py how to setup IDs
 TapiToken = '' # '' means do not send
 TchatID = '' # '' means DO NOT SEND
 
 
-Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime ]
+Lotteries = { # { alias: {settings} }; drawTimeList: [ dow 1..7, localTZtime ]
 	# empty url means do not proceed it
 
 	'hoosierlotto': {
-		'id':		19,
 		'name':		'Hoosier Lotto',
-		'alias': 	'hoosier-lotto',
 		'timezone':	'America/Indianapolis',
 		'drawTimeList': [
 			[3, '23:00'],
@@ -59,9 +53,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 	},
 
 	'kenyalotto': {
-		'id':		26,
 		'name':		'Kenya Lotto',
-		'alias': 	'kenya-lotto',
 		'timezone':	'Africa/Nairobi',
 		'drawTimeList': [ # draws each hour indeed
 			[1, '22:00'],
@@ -77,10 +69,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 	},
 
 	'philippineslotto': {
-		'id':		33,
 		'name':		'Lotto 6/42',
-		'alias-rrc':'philippineslotto',
-		'alias': 	'philippines-lotto-6-42',
 		'timezone':	'Asia/Manila',
 		'drawTimeList': [
 			[2, '21:00'],
@@ -92,9 +81,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 	},
 
 	'philippinesmega': {
-		'id':		34,
 		'name':		'Megalotto 6/45',
-		'alias': 	'philippines-megalotto-6-45',
 		'timezone':	'Asia/Manila',
 		'drawTimeList': [
 			[1, '21:00'],
@@ -106,9 +93,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 	},
 
 	'philippinesultra': {
-		'id':		35,
 		'name':		'UltraLotto 6/58',
-		'alias': 	'philippines-ultralotto-6-58',
 		'timezone':	'Asia/Manila',
 		'drawTimeList': [
 			[5, '21:00'],
@@ -119,9 +104,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 	},
 
 	'philippinessuper': {
-		'id':		36,
 		'name':		'SuperLotto 6/49',
-		'alias': 	'philippines-superlotto-6-49',
 		'timezone':	'Asia/Manila',
 		'drawTimeList': [
 			[2, '21:00'],
@@ -133,9 +116,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 	},
 
 	'philippinesgrand': {
-		'id':		37,
 		'name':		'GrandLotto 6/55',
-		'alias': 	'philippines-grandlotto-6-55',
 		'timezone':	'Asia/Manila',
 		'drawTimeList': [
 			[1, '21:00'],
@@ -147,9 +128,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 	},
 
 	'marksix': {
-		'id':		38,
 		'name':		'Mark 6',
-		'alias': 	'hong-kong-mark-6-lotto',
 		'timezone':	'Asia/Hong_Kong',
 		'drawTimeList': [
 			[2, '21:30'],
@@ -161,55 +140,29 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 	},
 
 	'japanlotto6': {
-		'id':		39,
 		'name':		'Lotto 6',
-		'alias': 	'japan-loto-6',
 		'timezone':	'Japan',
 		'drawTimeList': [
 			[1, '19:00'], # 2?
 			[4, '19:00']  # 5?
 		],
-#		'url':		'https://www.mizuhobank.co.jp/takarakuji/loto/loto6/index.html', # REACT
 		'url':		'https://yesplay.bet/lucky-numbers/japan_loto_6/results', # HTML
 		'urlType':	'HTML'
 	},
 
 	'taiwanlotto649': {
-		'id':		40,
 		'name':		'Lotto 6/49',
-		'alias': 	'taiwan-lotto-6-49',
 		'timezone':	'Asia/Taipei',
 		'drawTimeList': [
 			[2, '23:00'],
 			[5, '23:00']
 		],
-#		'url':		'https://www.taiwanlottery.com.tw/lotto/Lotto649/history.aspx', # DEAD!
 		'url':		'https://api.taiwanlottery.com/TLCAPIWeB/Lottery/Lotto649Result?period&month={}&pageNum=1&pageSize=50', # like month=2024-01
 		'urlType':	'JSON'
 	},
 
-	'nigeriagoldenchancelotto': { # each day 7 times a day!
-		'id':		71,
-		'name':		'Golden Chance Lotto',
-		'alias': 	'nigeriagoldenchancelotto', # GOLDENVOGUEFRI, main5 + more5
-		'timezone':	'Africa/Lagos',
-		'drawTimeList': [ # here we have game ID added
-			[1, '8:15', 62],
-			[2, '8:00', 64],
-			[3, '8:00', 66],
-			[4, '8:00', 68],
-			[5, '8:00', 69],
-			[6, '8:00', 71],
-			[7, '8:00', 61],
-		],
-		'url':		'https://goldenchancelotto.com/backend/api/DailyGameResult/AllGamesPerPeriodPerGame?GameId={}&StartDate={}', # gameID, date[Y-m-d]
-		'urlType':	'JSON'
-	},
-
 	'uk49slotto': { # each day, 2 times a day but not clear
-		'id':		76,
 		'name':		'UK 49s',
-		'alias': 	'uk49s',
 		'timezone':	'GMT',
 		'drawTimeList': [
 			[1, '19:49'],
@@ -225,9 +178,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 	},
 
 	'goslotto749': { # each day, 7 time a day
-		'id':		77,
 		'name':		'Sportloto 7/49',
-		'alias': 	'sportloto-749',
 		'timezone':	'Europe/Moscow',
 		'drawTimeList': [
 			[1, '22:30'],
@@ -244,9 +195,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 
 	# Baba Ijebu set: see full list by key "Nigeria" here https://www.magayo.com/lottery-results/
 	'africabingo': { # baba-ijebu set:
-		'id':		28,
 		'name':		'Bingo',
-		'alias': 	'baba-ijebu',
 		'timezone':	'Africa/Lagos',
 		'drawTimeList': [
 			[1, '15:45'],
@@ -256,9 +205,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 		'urlType':	'HTML'
 	},
 	'africaenugu': {
-		'id':		28,
 		'name':		'Enugu',
-		'alias': 	'baba-ijebu',
 		'timezone':	'Africa/Lagos',
 		'drawTimeList': [
 			[3, '19:15'],
@@ -268,9 +215,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 		'urlType':	'HTML'
 	},
 	'africainternational': {
-		'id':		28,
 		'name':		'International',
-		'alias': 	'baba-ijebu',
 		'timezone':	'Africa/Lagos',
 		'drawTimeList': [
 			[1, '22:45'],
@@ -280,9 +225,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 		'urlType':	'HTML'
 	},
 	'africalucky': {
-		'id':		28,
 		'name':		'Lucky',
-		'alias': 	'baba-ijebu',
 		'timezone':	'Africa/Lagos',
 		'drawTimeList': [
 			[3, '22:45'],
@@ -292,9 +235,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 		'urlType':	'HTML'
 	},
 	'africapeoples': {
-		'id':		28,
 		'name':		'Peoples',
-		'alias': 	'baba-ijebu',
 		'timezone':	'Africa/Lagos',
 		'drawTimeList': [
 			[1, '12:45'],
@@ -305,9 +246,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 	},
 
 	'tatua3': {
-		'id':		28,
 		'name':		'Tatua 3',
-		'alias': 	'tatua-3',
 		'timezone':	'Africa/Nairobi',
 		'drawTimeList': [ # it plays each 30 minutes but we use only 21:00 daily
 			[1, '21:00'],
@@ -323,9 +262,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 	},
 
 	'moroccolotto': {
-		'id':		28,
 		'name':		'Maroc Loto',
-		'alias': 	'morocco-lotto',
 		'timezone':	'Africa/Lagos', # there is no Marocco tz
 		'drawTimeList': [ # 6main + 1more
 			[1, '21:00'],
@@ -337,9 +274,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 	},
 
 	'lottomaxca': {
-		'id':		59,
 		'name':		'Canada Lotto Max',
-		'alias': 	'lotto-max-ca',
 		'timezone':	'Canada/Eastern', # Ontario
 		'drawTimeList': [ # 7 numbers
 			[2, '22:30'],
@@ -350,9 +285,7 @@ Lotteries = { # { alias-rrc: {settings} }; drawTimeList: [ dow 1..7, localTZtime
 	},
 
 	'malawilotto': { # this is Mega Jackpot Malawi
-		'id':		27,
 		'name':		'Malawi Lotto',
-		'alias': 	'malawi-national-lottery',
 		'timezone':	'Africa/Harare',
 		'drawTimeList': [
 			[2, '21:45'],
