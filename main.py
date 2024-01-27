@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """\
-This is Scrapper main file
+This is Lottery Results Scrapper main file
 
 Start it each hour :00
-We checking all missing results for last 7 days, see config.py
-Send notification to Telegram chat
+We checking all missing results for last 7 days, see draws in config.py
+Send notification to Telegram chat if configured
 
-pip3 install pymysql
-pip3 install pytz
-pip3 install bs4
+Installation:
+	pip3 install pymysql
+	pip3 install pytz
+	pip3 install bs4
 """
 
 __project__	= "Lotteries Results Scrapper"
